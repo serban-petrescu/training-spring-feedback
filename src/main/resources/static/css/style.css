@@ -1,0 +1,11 @@
+.is-positive {
+    color: green;
+}
+
+.is-negative {
+    color: red;
+}
+
+.is-strong {
+    font-weight: bold;
+}

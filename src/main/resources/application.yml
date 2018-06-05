@@ -1,0 +1,12 @@
+spring.jpa.hibernate.ddl-auto: validate
+
+spring.jackson.serialization.write-dates-as-timestamps: false
+
+ro.msg.learning.ta:
+  url: "https://feedbackp1940442392trial.hanatrial.ondemand.com/spet/ta/services/analize.xsjs?text={text}"
+  negative:
+    - bad
+    - horrible
+  positive:
+    - good
+    - nice

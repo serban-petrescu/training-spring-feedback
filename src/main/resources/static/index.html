@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <title>Feedback</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.1.4/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://openui5.hana.ondemand.com/resources/sap-ui-core.js"
+            id="sap-ui-bootstrap"
+            data-sap-ui-theme="sap_belize"
+            data-sap-ui-libs="sap.m"
+            data-sap-ui-xx-bindingSyntax="complex"
+            data-sap-ui-resourceroots='{"ro.msg.learning.feedback": "./"}'>
+    </script>
+    <script type="text/javascript">
+		sap.ui.getCore().attachInit(function () {
+            new sap.ui.core.ComponentContainer({
+               name : "ro.msg.learning.feedback"
+            }).placeAt("content");
+		});
+
+    </script>
+</head>
+<body class="sapUiBody" id="content">
+</body>
+</html>

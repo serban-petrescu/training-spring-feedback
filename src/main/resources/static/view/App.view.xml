@@ -1,0 +1,8 @@
+<mvc:View
+        xmlns:mvc="sap.ui.core.mvc"
+        controllerName="ro.msg.learning.feedback.controller.App"
+        xmlns="sap.m"
+        displayBlock="true">
+    <App id="app">
+    </App>
+</mvc:View>

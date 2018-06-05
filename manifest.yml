@@ -1,0 +1,10 @@
+---
+applications:
+- name: feedback
+  memory: 756M
+  instances: 1
+  random-route: true
+  # make sure that the JAR name is correct
+  path: ./target/feedback-0.0.1-SNAPSHOT.jar
+  services:
+  - feedback-database

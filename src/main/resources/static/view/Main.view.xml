@@ -1,0 +1,40 @@
+<mvc:View
+        xmlns:core="sap.ui.core"
+        xmlns:mvc="sap.ui.core.mvc"
+        controllerName="ro.msg.learning.feedback.controller.Main"
+        xmlns="sap.m"
+        displayBlock="true">
+    <Page title="Feedback">
+
+        <List items="{path: '/feedback', sorter: {path: 'createdAt', descending: true}}">
+            <CustomListItem>
+                <HBox>
+                    <core:Icon size="2rem" src="sap-icon://customer"
+                               class="sapUiSmallMarginBegin sapUiSmallMarginTopBottom"/>
+                    <VBox class="sapUiSmallMarginBegin sapUiSmallMarginTop">
+                        <FormattedText htmlText="{parts: [{path: 'text'}, {path: 'sentiments'}], formatter: '.formatFeedback'}"
+                                       class="sapUiTinyMarginBottom"/>
+                        <Label text="{path: 'createdAt', formatter: '.formatCreatedAt'}"
+                               class="sapUiTinyMarginBottom"/>
+                    </VBox>
+                </HBox>
+            </CustomListItem>
+        </List>
+        <subHeader>
+            <Toolbar>
+                <HBox width="100%">
+                    <Input value="{/text}" valueLiveUpdate="true" submit="onSubmit">
+                        <layoutData>
+                            <FlexItemData growFactor="1"/>
+                        </layoutData>
+                    </Input>
+                    <Button text="Submit" type="Accept" enabled="{= !!${/text} }" press="onSubmit">
+                        <layoutData>
+                            <FlexItemData growFactor="0"/>
+                        </layoutData>
+                    </Button>
+                </HBox>
+            </Toolbar>
+        </subHeader>
+    </Page>
+</mvc:View>
