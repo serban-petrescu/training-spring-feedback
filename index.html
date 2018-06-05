@@ -1,0 +1,991 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>Cloud Native Java</title>
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/msg.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="assets/xcode.css">
+        
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<img src="assets/logo.png" class="logo"/>
+		<div class="footnote">msg | June 2018 | Building cloud native Java apps</div>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<h1>Building cloud native Java apps</h1>
+					<p>
+						<small>by <a href="https://serban-petrescu.github.io">Serban Petrescu</a></small>
+					</p>
+				</section>
+				<section>
+					<section>
+						<h2><strong>Technology Intro</strong></h2>
+					</section>
+					<section>
+						<h3>Spring</h3>
+						<img src="./assets/01_Spring_Logo.png" />
+						<p>
+							Started up as a <strong>dependency injection</strong> framework. Evolved to have a 
+							whole ecosystem around it (security, data access, web, cloud, etc).
+						</p>
+					</section>
+					<section>
+						<h3>Spring Boot</h3>
+						<img src="./assets/01_Spring_Boot_Logo.png" />
+						<p>
+							Central Spring project, which focuses on easier / automatic configuration, providing
+							an <strong>embedded web server</strong> and enhanced environment-awareness.
+						</p>
+					</section>
+					<section>
+						<h3>PostgreSQL</h3>
+						<img src="./assets/01_Postgre_Logo.png" />
+						<p>
+							Highly extendable, open source object-relational database management system.
+						</p>
+					</section>
+					<section>
+						<h3>Flyway</h3>
+						<img src="./assets/01_Flyway_Logo.png" />
+						<p>
+							Open-source automatic database migration tool. Nicely integrated in Spring Boot.
+						</p>
+					</section>
+				</section>
+				
+				<section>
+					<section>
+						<h2><strong>The Feedback App</strong></h2>
+					</section>
+					<section>
+						<h3>Overview</h3>
+						<p>
+							Simple anonymous feedback form:
+							<ul>
+								<li>Responsive web app.</li>
+								<li>Updates the data automatically.</li>
+								<li>Analyses the feedback sentiments (type and intensity).</li>
+							</ul>
+						</p>
+					</section>
+					<section>
+						<h3>Demo</h3>
+						<img src="./assets/02_App_Demo.gif" />
+						<p>
+							<small>(Notice the sentiment font colour and weight)</small>
+						</p>
+					</section>
+					<section>
+						<h3>Steps</h3>
+						<ul>
+							<li>When the user opens the app, all the existing feedback should be loaded.</li>
+							<li>When he creates a feedback, it should be broadcast to all other users.</li>
+							<li>The sentiment analysis should be performed asynchronously and the results should be sent to all users.</li>
+						</ul>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>Project Setup</strong></h2>
+					</section>
+					<section>
+						<h3>Spring Initializer</h3>
+						<p>
+							<ul>
+								<li>Go to <a href="http://start.spring.io">start.spring.io</a>.</li>
+								<li>Generate a <strong>Maven</strong> project with <strong>Java</strong> 
+									and Spring Boot <strong>1.5.x</strong>.</li>
+								<li>Group: <strong>ro.msg.learning</strong>, name: <strong>feedback</strong>.</li>
+								<li>Dependencies: Web, JPA, Websocket, Lombok, Flyway, PostgreSQL, Hystrix, DevTools.</li>
+							</ul>
+						</p>
+					</section>
+					<section>
+						<img src="./assets/03_Initializer.PNG" />
+					</section>
+					<section>
+						<h3>Setup</h3>
+						<ul>
+							<li>Generate the project and extract the archive contents inside your working folder.</li>
+							<li>You can delete the <em>.mvn</em> fodler and the <em>mvnw</em> and <em>mvnw.cmd</em> files.</li>
+						</ul>
+					</section>
+					<section>
+						<h3>Add dependencies</h3>
+						<p>
+							We need to add some more dependencies (for Java 8 Time). Add the following inside the <em>dependencies</em>
+							section of the <em>pom.xml</em> file.
+						</p>
+<pre><code>
+&lt;dependency&gt;
+	&lt;groupId&gt;org.hibernate&lt;/groupId&gt;
+	&lt;artifactId&gt;hibernate-java8&lt;/artifactId&gt;
+&lt;/dependency&gt;
+&lt;dependency&gt;
+	&lt;groupId&gt;com.fasterxml.jackson.datatype&lt;/groupId&gt;
+	&lt;artifactId&gt;jackson-datatype-jsr310&lt;/artifactId&gt;
+&lt;/dependency&gt;
+</code></pre>
+
+					</section>
+					<section>
+						<h3>Final touches</h3>
+						<ul>
+							<li>Delete the <em>src/test</em> folder (we won't make any JUnit tests).</li>
+							<li>Rename the <em>src/main/resources/application.properties</em> file to <em>application.yml</em> 
+								(change the extension).</li>
+							<li>Extract the <a href="./assets/static.zip">UI sources</a> inside the <em>src/main/resources/static</em> folder.</li>
+							<li>Open the project in your IDE.</li>
+						</ul>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>Data model</strong></h2>
+					</section>
+					<section>
+						<h3>Model</h3>
+						<p>Our model will be fairly simple, with just two entities:</p>
+						<img src="assets/04_Data_model.png" />
+					</section>
+					<section>
+						<h3>Steps</h3>
+						<p>
+							We need to tell the app how to connect to the local database. 
+							For the cloud, this is done automatically (via reconfiguration).
+						</p>
+						<p>
+							Afterwards we'll write the database migration for generating the schema and 
+							the Java entity classes to map the database tables (using JPA).
+						</p>
+					</section>
+					<section>
+						<h3>Configuration (YAML)</h3>
+<pre><code class="language-yaml"># src/main/resources/application-default.yml
+# (this file will be loaded only when running locally)
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: # your pwd comes here
+
+flyway.clean-on-validation-error: true
+</code></pre>
+					</section>
+					<section>
+						<h3>Database Migration</h3>
+<pre><code class="language-sql">-- src/main/resources/db/migration/V1__Data_model.sql
+create table feedback (
+    id serial not null primary key,
+    created_at timestamp,
+    text varchar(255)
+);
+create table sentiment (
+    id serial not null primary key,
+    end_index int4 not null,
+    start_index int4 not null,
+    strong boolean not null,
+    text varchar(255),
+    type varchar(255),
+    feedback_id int4 references feedback
+);
+</code></pre>
+					</section>
+					<section>
+						<h3>Entities and enums</h3>
+<pre><code class="language-java">// ro.msg.learning.feedback.model.SentimentType
+package ro.msg.learning.feedback.model;
+
+public enum SentimentType {
+	POSITIVE, NEGATIVE, NEUTRAL
+}
+</code></pre>
+					</section>
+					<section>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.model.Sentiment
+package ro.msg.learning.feedback.model;
+
+import lombok.Data;
+import javax.persistence.*;
+
+@Data 
+@Entity
+public class Sentiment {
+	@Id 
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	private int id;
+	private int startIndex;
+	private int endIndex;
+	@Enumerated(EnumType.STRING)
+	private SentimentType type;
+	private boolean strong;
+	private String text;
+}
+</code></pre>
+					</section>
+					<section>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.model.Feedback
+package ro.msg.learning.feedback.model;
+
+import lombok.Data;
+import javax.persistence.*;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@Entity
+public class Feedback {
+	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	private int id;
+	private LocalDateTime createdAt;
+	private String text;
+	@OneToMany(cascade=CascadeType.ALL, fetch=FetchType.EAGER)
+	@JoinColumn(name="feedback_id")
+	private List&lt;Sentiment&gt; sentiments;
+}
+</code></pre>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>Simple Read</strong></h2>
+					</section>
+					<section>
+						<h3>Design</h3>
+						<img src="./assets/05_Simple_read_design.png"/>
+						<ul>
+							<li>Repository: does low-level database operations.</li>
+							<li>Service: contains the business logic.</li>
+							<li>Controller: acts as a facade to the user interface.</li>
+						</ul>
+					</section>
+					<section>
+						<h3>Repository</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.repository.FeedbackRepository
+package ro.msg.learning.feedback.repository;
+
+import org.springframework.data.repository.Repository;
+import ro.msg.learning.feedback.model.Feedback;
+import java.util.List;
+
+public interface FeedbackRepository 
+		extends Repository&lt;Feedback, Integer&gt; {
+
+	List&lt;Feedback&gt; findAll();
+}	
+</code></pre>
+						<p><small>Spring Data JPA will implement the interface for us.</small></p>
+					</section>
+					<section>
+						<h3>Service</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.FeedbackService
+package ro.msg.learning.feedback.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import ro.msg.learning.feedback.model.Feedback;
+import ro.msg.learning.feedback.repository.FeedbackRepository;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class FeedbackService {
+	private final FeedbackRepository repository;
+
+	public List&lt;Feedback&gt; readAll() {
+		return repository.findAll();
+	}
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Controller</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.controller.FeedbackController
+package ro.msg.learning.feedback.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+import ro.msg.learning.feedback.model.Feedback;
+import ro.msg.learning.feedback.service.FeedbackService;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/rest")
+@RequiredArgsConstructor
+public class FeedbackController {
+	private final FeedbackService service;
+
+	@GetMapping("/feedback")
+	public List&lt;Feedback&gt; readAll() {
+		return service.readAll();
+	}
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Mock data</h3>
+<pre><code>-- src/main/resources/db/migration/V2__Mock_data.sql
+INSERT INTO feedback(text, created_at) 
+	VALUES ('The presentation is very good!', timezone('utc', now()));
+INSERT INTO feedback(text, created_at) 
+	VALUES ('I think it is boring as hell...', timezone('utc', now()));
+</code></pre>
+					</section>
+					<section>
+						<h3>Testing</h3>
+						<p>Start the application (run FeedbackApplication#main).</p>
+						<p>Open the browser at <a href="http://localhost:8080/">http://localhost:8080/</a>.</p>
+						<img src="./assets/06_Simple_read_testing.PNG"/>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>First deployment</strong></h2>
+					</section>
+					<section>
+						<h3>Intro</h3>
+						<p>
+							Let's deploy our small application into the Pivotal CF.
+						</p>
+						<p>
+							First we must prepare the cloud resources  (database).
+						</p>
+						<p>
+							Then we need to package the application into a JAR.
+						</p>
+						<p>
+							Lastly we must define a manifest and push the app.
+						</p>
+					</section>
+					<section>
+						<h3>Packaging</h3>
+						<p>
+							All we need to do is run a <code>mvn clean package</code> (which will generate a JAR file in the target folder).
+						</p>
+						<br/>
+						<p><small>
+							Eclipse: Right click on pom.xml -> Right Click -> Run As... -> Maven Install
+						</small></p>
+						<p><small>
+							IntelliJ: In the Maven pane (View -> Tool Windows -> Maven) -> Select "clean" and "package" 
+							 -> Press the run button (from inside the pane)
+						</small></p>
+					</section>
+					<section>
+						<h3>Cloud</h3>
+						<ul>
+							<li>Login to the Pivotal WS Console: <a href="https://console.run.pivotal.io">https://console.run.pivotal.io</a>.</li>
+							<li>Go to the Marketplace (on the left menu).</li>
+							<li>Search for ElephantSQL.</li>
+							<li>Create a Tiny turtle instance (name = "feedback-database").</li>
+						</ul>
+					</section>
+					<section>
+						<img src="./assets/02_Deployment_service.gif"/>
+					</section>
+					<section>
+						<h3>Manifest</h3>
+<pre><code class="language-yaml"># manifest.yml (this file is really in the root of the project)
+---
+applications:
+- name: feedback
+  memory: 756M
+  instances: 1
+  random-route: true
+  # make sure that the JAR name is correct
+  path: ./target/feedback-0.0.1-SNAPSHOT.jar
+  services:
+  - feedback-database
+</code></pre>
+					</section>
+					<section>
+						<h3>Pushing</h3>
+						<p>First login to the CF via cmd line:</p>
+						<pre><code class="language-bash">cf login -a api.run.pivotal.io</code></pre>
+						<p>Then, inside the project directory:</p>
+						<pre><code class="language-bash">cf push</code></pre>
+						<br />
+						<p><small>
+							If you are inside msg network, set the proxy in the cmd line:
+<pre><code class="language-bash">SET HTTP_PROXY=http://proxy.msg.de:3128
+SET HTTPS_PROXY=http://proxy.msg.de:3128
+</code></pre>
+						</small></p>
+					</section>
+					<section>
+						<h3>Testing</h3>
+						<p>
+							In the command line, after pushing, you should get the application URI.
+							Open it in your browser.
+						</p>
+						<img src="./assets/02_Deployment_result.png"/>
+					</section>
+					<section>
+						<h3>Going forward</h3>
+						<p>
+							For future deployments, you will just need to do mvn package and cf push, without the other steps.
+							The application URL will remain the same.
+						</p>
+						<p>
+							When you are done, make sure to delete or stop the application from CF using the 
+							<a href="https://console.run.pivotal.io">Pivotal WS Console</a>. <br/>
+							<small>(Console -> Spaces -> Your space -> Apps -> Feedback -> Settings -> Delete)</small>
+						</p>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>Simple Create</strong></h2>
+					</section>
+					<section>
+						<h3>Model</h3>
+						<p>We need an extra model class to represent the data coming from the outside world.</p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.model.InboundFeedback
+package ro.msg.learning.feedback.model;
+
+import lombok.Data;
+
+@Data
+public class InboundFeedback {
+	private String text;
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Repository</h3>
+						<p>First we add a new method to our repository interface:</p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.repository.FeedbackRepository
+
+	void save(Feedback feedback);
+
+</code></pre>
+					</section>
+					<section>
+						<h3>Service</h3>
+						<p>The service will perform two steps:</p>
+						<ul>
+							<li>Map the inbound feedback to a new entity.</li>
+							<li>Call the save method of the repository.</li>
+						</ul>
+					</section>
+					<section>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.FeedbackService
+
+import ro.msg.learning.feedback.model.InboundFeedback;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
+// the rest of the class ...
+
+public void createFeedback(InboundFeedback inbound) {
+	repository.save(toEntity(inbound));
+}
+
+private static Feedback toEntity(InboundFeedback inbound) {
+	Feedback feedback = new Feedback();
+	feedback.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+	feedback.setText(inbound.getText());
+	return feedback;
+}
+
+</code></pre>
+					</section>
+					<section>
+						<h3>Controller</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.controller.FeedbackController
+	
+import ro.msg.learning.feedback.model.InboundFeedback;
+
+// the rest of the class ...
+
+@PostMapping("/feedback")
+public void createFeedback(@RequestBody InboundFeedback feedback) {
+	service.createFeedback(feedback);
+}
+
+</code></pre>
+					</section>
+					<section>
+						<h3>Testing</h3>
+						<img src="./assets/07_Simple_create_testing.gif"/>
+						<small>We can create a new feedback, but we need to refresh the UI.</small>
+					</section>
+				</section>
+
+				<section>
+					<section>
+						<h2><strong>Sentiments</strong></h2>
+					</section>
+					<section>
+						<p>First we'll rely on an external API to perform the sentiment analysis.</p>
+						<p>Then we'll add the logic for doing it locally if the external API does not work anymore.</p>
+					</section>
+					<section>
+						<h3>Configuration (Java)</h3>
+						<p>
+							We need a small configuration class for holding the external API URL (and settings for the 
+							local logic).
+						</p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.config.TextAnalysisConfig
+	
+package ro.msg.learning.feedback.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
+
+@Data
+@Configuration
+@ConfigurationProperties(prefix = "ro.msg.learning.ta")
+public class TextAnalysisConfig {
+	private String url;
+}	
+
+</code></pre>
+					</section>
+					<section>
+						<h3>Configuration (YML)</h3>
+						<p>The values for this configuration are read from the <em>application.yml</em> file.</p>
+<pre><code class="language-yaml" style="max-height: initial"># src/main/resources/application.yml
+
+ro.msg.learning.ta:
+  url: "https://feedbackp1940442392trial.hanatrial.ondemand.com/spet/ta/services/analize.xsjs?text={text}"
+
+</code></pre>
+					</section>
+					<section>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentExtractor
+package ro.msg.learning.feedback.service;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+import ro.msg.learning.feedback.config.TextAnalysisConfig;
+import ro.msg.learning.feedback.model.Sentiment;
+import java.util.*;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class SentimentExtractor {
+	private final RestTemplate template = new RestTemplate();
+	private final TextAnalysisConfig config;
+
+	public List&lt;Sentiment&gt; extractFrom(String text) {
+		log.info("Calling external service for '{}'.", text);
+		Sentiment[] sentiments = template.getForObject(
+			config.getUrl(), Sentiment[].class, text);
+		return new LinkedList&lt;&gt;(Arrays.asList(sentiments));
+	}
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Service</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentService
+package ro.msg.learning.feedback.service;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import ro.msg.learning.feedback.model.Feedback;
+import ro.msg.learning.feedback.repository.FeedbackRepository;
+
+@Service
+@RequiredArgsConstructor
+public class SentimentService {
+	private final SentimentExtractor sentimentExtractor;
+	private final FeedbackRepository feedbackRepository;
+
+	public void createSentiments(Feedback feedback) {
+		feedback.setSentiments(sentimentExtractor
+			.extractFrom(feedback.getText()));
+		feedbackRepository.save(feedback);
+	}
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Feedback Service</h3>
+						<p>We need to call the sentiment service when creating a feedback (in the feedback service):</p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.FeedbackService
+// we add a new field:
+private final SentimentService sentimentService;
+
+// we adjust the createFeedback
+public void createSentiments(Feedback feedback) {
+	// ... the rest of the method ...
+	// add this at the very end on the method:
+	sentimentService.createSentiments(feedback);
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Testing</h3>
+						<p>Try to create a feedback in English, with some sentiments (words like "good", "bad", etc).</p>
+						<p><small>
+							If you are in msg network, you need to set the following VM options in your IDE:
+							<pre><code>-Dhttp.proxyHost=proxy.msg.de -Dhttp.proxyPort=3128 -Dhttps.proxyHost=proxy.msg.de -Dhttps.proxyPort=3128</code></pre>
+						</small></p>
+					</section>
+					<section>
+						<img src="./assets/08_Sentiments_testing.gif"/>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2><strong>Resilience</strong></h2>
+					</section>
+					<section>
+						<h3>Reasoning</h3>
+						<p>What if the external API is down?</p>
+						<p>Or we can't access the network?</p>
+						<p>We would have a lot of unprocessed feedback.</p>
+					</section>
+					<section>
+						<h3>Options</h3>
+						<p>
+							[Homework] We could put the feedback into a queue and use a worker
+							to retry calling the external API.
+						</p>
+						<p>
+							Or we could have a local extractor as fallback. 
+							This extractor will just search for a list of keywords.
+						</p>
+					</section>
+					<section>
+						<h3>Circuit breaker</h3>
+						<p>
+							To not make matters worse for the external API, we use a circuit breaker.
+						</p>
+						<img src="./assets/09_Circuit_breaker.PNG"/>
+					</section>
+					<section>
+						<h3>Config (JAVA)</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.config.TextAnalysisConfig
+import org.springframework.cloud.netflix.hystrix.EnableHystrix;
+import java.util.List;
+
+// ...
+
+// we add a new annotation on the class:
+@EnableHystrix
+public class TextAnalysisConfig {
+	// ...
+	// we add the following fields:
+	private List&lt;String&gt; positive;
+	private List&lt;String&gt; negative;
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Config (YML)</h3>
+<pre><code class="language-yaml" style="max-height: initial"># src/main/resources/application.yml
+ro.msg.learning.ta:
+  url: "..." # the value of the url property stays the same
+  negative:
+    - bad
+    - horrible
+  positive:
+    - good
+    - nice
+</code></pre>
+					</section>
+					<section>
+						<p><small>We need to add a couple of methods to the Sentiment Extractor:</small></p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentExtractor
+import ro.msg.learning.feedback.model.SentimentType;
+
+// ...
+
+private void appendOccurrencesOf(List&lt;Sentiment&gt; target, String text, 
+		String word, SentimentType type) {
+	int length = text.length() - word.length();
+	for (int current = text.indexOf(word);
+			current >= 0 &amp;&amp; current &lt;= length; 
+			current = text.indexOf(word, current + 1)) {
+		Sentiment sentiment = new Sentiment();
+		sentiment.setType(type);
+		sentiment.setStartIndex(current);
+		sentiment.setEndIndex(current + word.length());
+		sentiment.setText(word);
+		sentiment.setType(type);
+		sentiment.setStrong(false);
+		target.add(sentiment);
+	}
+}
+</code></pre>
+					</section>
+					<section>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentExtractor
+import java.util.ArrayList;
+
+// ...
+
+private List&lt;Sentiment&gt; fallback(String text) {
+	log.info("Falling back to local analysis for '{}'.", text);
+	String lowerText = text.toLowerCase();
+	List&lt;Sentiment&gt; sentiments = new ArrayList&lt;&gt;();
+	for (String word : config.getPositive()) {
+		appendOccurrencesOf(sentiments, lowerText, 
+			word, SentimentType.POSITIVE);
+	}
+	for (String word : config.getNegative()) {
+		appendOccurrencesOf(sentiments, lowerText, 
+			word, SentimentType.NEGATIVE);
+	}
+	return sentiments;
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Hystrix</h3>
+						<p>Lastly we need to add an annotation on the <em>extractFrom</em> method:</p>
+						<pre><code>@HystrixCommand(fallbackMethod = "fallback")</code></pre>
+					</section>
+					<section>
+						<h3>Testing</h3>
+						<p>
+							First disconnect from the internet or change the URL from the application.yml to a wrong URL.
+						</p>
+						<p>
+							Afterwards, if you create new feedback, only the words from the application.yml should be highlighted.
+						</p>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2><strong>Async Support</strong></h2>
+					</section>
+					<section>
+						<h3>Reasoning</h3>
+						<p>We don't like that the sentiment extraction is done synchronous. We can fix that easily.</p>
+						<p>First place the @Async annotation on the <em>SentimentService#createSentiments</em> method.</p>
+					</section>
+					<section>
+						<h3>Async Configuration</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.config.AsyncConfig
+package ro.msg.learning.feedback.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+@EnableAsync
+@Configuration
+public class AsyncConfig {
+	@Bean
+	public TaskExecutor taskExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(4);
+		executor.initialize();
+		return executor;
+	}
+}
+</code></pre>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2><strong>Websocket</strong></h2>
+					</section>
+					<section>
+						<h3>Reasoning</h3>
+						<p>The user has to refresh the page to get the newest data. We don't like that. </p>
+						<p>One way of solving it is by using Websockets.</p>
+					</section>
+					<section>
+						<h3>Intro</h3>
+						<p>WebSocket is a protocol for bidirectional communication, supported by all major browsers.</p>
+						<img src="./assets/10_Websocket.PNG"/>
+					</section>
+					<section>
+						<h3>Configuration</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.config.WebSocketConfig
+package ro.msg.learning.feedback.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.*;
+
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+
+	@Override
+	public void configureMessageBroker(MessageBrokerRegistry config) {
+		config.enableSimpleBroker("/topic");
+		config.setApplicationDestinationPrefixes("/app");
+	}
+
+	@Override
+	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		registry.addEndpoint("/websocket").withSockJS();
+	}
+}
+</code></pre>
+					</section>
+					<section>
+						<h3>Events</h3>
+						<p>Now we have a "channel" for sending events to the UI, but without any actual events.</p>
+						<p>
+							Spring has built-in support for application events, centered on the 
+							<a href="https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/context/ApplicationEventPublisher.html">
+								ApplicationEventPublisher
+							</a>
+							interface.
+						</p>
+					</section>
+					<section>
+						<h3>Model</h3>
+						<p>
+							Each event type should have its own model class for passing event data.
+							In our case, we will have two classes (one for Create and one for Update).
+						</p>
+						<p>Both classes will just contain the feedback.</p>
+					</section>
+					<section>
+						<h3>Feedback Created</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.event.FeedbackCreated
+package ro.msg.learning.feedback.event;
+
+import lombok.Data;
+import ro.msg.learning.feedback.model.Feedback;
+
+@Data
+public class FeedbackCreated {
+	private final Feedback feedback;
+}	
+</code></pre>
+					</section>
+					<section>
+						<h3>Sentiments Extracted</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.event.SentimentsExtracted
+package ro.msg.learning.feedback.event;
+
+import lombok.Data;
+import ro.msg.learning.feedback.model.Feedback;
+
+@Data
+public class SentimentsExtracted {
+	private final Feedback feedback;
+}	
+</code></pre>
+					</section>
+					<section>
+						<h3>Publishing events</h3>
+						<p>
+							To publish events, we just need to autowire the ApplicationEventPublisher,
+							instantiate the event classes and pass them to the publishEvent method.
+						</p>
+					</section>
+					<section>
+						<h3>Services</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.FeedbackService
+import org.springframework.context.ApplicationEventPublisher;
+import ro.msg.learning.feedback.event.FeedbackCreated;
+
+// ...
+// in the createFeedback method, just after the repository.save:
+publisher.publishEvent(new FeedbackCreated(feedback));
+</code></pre>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentService
+import org.springframework.context.ApplicationEventPublisher;
+import ro.msg.learning.feedback.event.SentimentsExtracted;
+
+// ...
+// in the createSentiments method, at the end of the method:
+publisher.publishEvent(new SentimentsExtracted(feedback));
+</code></pre>
+					</section>
+					<section>
+						<h3>Listening for events</h3>
+						<p>
+							The events are local to the Java application, so we need to listen for them 
+							and propagate them to the UI through the WebSocket.
+						</p>
+						<p>
+							This can be done very easily, using some annotations.
+						</p>
+					</section>
+					<section>
+						<h3>Controller</h3>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.controller.FeedbackController
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.event.EventListener;
+import ro.msg.learning.feedback.event.*;
+
+// ... add a new field
+private final SimpMessagingTemplate template;
+
+// ... add two new methods
+@EventListener
+public void onFeedbackCreated(FeedbackCreated event) {
+	template.convertAndSend("/topic/feedback", 
+		event.getFeedback());
+}
+
+@EventListener
+public void onSentimentsExtracted(SentimentsExtracted event) {
+	template.convertAndSend("/topic/sentiment", 
+		event.getFeedback());
+}
+</code></pre>
+					</section>
+				</section>
+				<section>
+					<h1><strong>The end</strong></h1>
+					<h4>Thank you for your attention.</h4>
+				</section>
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				center: true,
+				mouseWheel: true,
+				slideNumber: true,
+				transition: 'slide',
+				history: true,
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+		</script>
+	</body>
+</html>
