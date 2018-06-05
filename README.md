@@ -10,4 +10,4 @@ Small application which serves as an introduction to Spring / Cloud Native / Clo
  - Local [Cloud Foundry CLI](https://github.com/cloudfoundry/cli/releases) installation.
  
 ## Walkthrough
-You can find the walthrough the training [here](https://serban-petrescu.github.io/training-spring-feedback/index.html).
+You can find the presentation and walkthrough for the training [on GitHub Pages here](https://serban-petrescu.github.io/training-spring-feedback/index.html).
