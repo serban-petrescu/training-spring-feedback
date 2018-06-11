@@ -114,6 +114,17 @@
 							Open-source automatic database migration tool. Nicely integrated in Spring Boot.
 						</p>
 					</section>
+					<section>
+						<h3>YAML</h3>
+						<img src="./assets/01_YAML_Logo.png">
+						<p>Human-readable data serialization language, which is commonly used for configuration files.</p>
+						<p>It is indentation aware (i.e. grouping of properties depends on indentation).</p>
+					</section>
+					<section>
+						<h3>Websocket</h3>
+						<img src="./assets/10_Websocket.PNG"/>
+						<p>Websocket is a protocol for bidirectional communication, supported by all major browsers.</p>
+					</section>
 				</section>
 				
 				<section>
@@ -171,7 +182,7 @@
 						<h3>Setup</h3>
 						<ul>
 							<li>Generate the project and extract the archive contents inside your working folder.</li>
-							<li>You can delete the <em>.mvn</em> fodler and the <em>mvnw</em> and <em>mvnw.cmd</em> files.</li>
+							<li>You can delete the <em>.mvn</em> folder and the <em>mvnw</em> and <em>mvnw.cmd</em> files.</li>
 						</ul>
 					</section>
 					<section>
@@ -225,7 +236,16 @@
 						</p>
 					</section>
 					<section>
-						<h3>Configuration (YAML)</h3>
+						<h3>Global Configuration (YAML)</h3>
+						<p>We want to enable schema validation (so Hibernate checks if the Flyway generated tables are OK).</p>
+<pre><code class="language-yaml"># src/main/resources/application.yml
+# (this file will be loaded both when locally and on the cloud)
+spring.jpa.hibernate.ddl-auto: validate
+</code></pre>
+					</section>
+					<section>
+						<h3>Local Configuration (YAML)</h3>
+						<p>We configure the application to connect to the DB.</p>
 <pre><code class="language-yaml"># src/main/resources/application-default.yml
 # (this file will be loaded only when running locally)
 spring:
@@ -311,6 +331,12 @@ public class Feedback {
 }
 </code></pre>
 					</section>
+					<section>
+						<h3>Testing</h3>
+						<p>
+							Just run the application. If there is any exception logged into the console, then there is a problem.
+						</p>
+					</section>
 				</section>
 
 				<section>
@@ -391,6 +417,16 @@ public class FeedbackController {
 </code></pre>
 					</section>
 					<section>
+						<h3>Global Configuration (YAML)</h3>
+						<p>We must configure Spring to serialize the <em>createdAt</em> property as a string (and not as an array).</p>
+<pre><code class="language-yaml"># src/main/resources/application.yml
+
+# ...
+
+spring.jackson.serialization.write-dates-as-timestamps: false
+</code></pre>
+					</section>
+					<section>
 						<h3>Mock data</h3>
 <pre><code>-- src/main/resources/db/migration/V2__Mock_data.sql
 INSERT INTO feedback(text, created_at) 
@@ -454,7 +490,7 @@ INSERT INTO feedback(text, created_at)
 					</section>
 					<section>
 						<h3>Manifest</h3>
-<pre><code class="language-yaml"># manifest.yml (this file is really in the root of the project)
+<pre><code class="language-yaml"># manifest.yml (this file is next to the pom.xml file)
 ---
 applications:
 - name: feedback
@@ -548,7 +584,8 @@ import java.time.ZoneOffset;
 // the rest of the class ...
 
 public void createFeedback(InboundFeedback inbound) {
-	repository.save(toEntity(inbound));
+	Feedback feedback = toEntity(inbound);
+	repository.save(feedback);
 }
 
 private static Feedback toEntity(InboundFeedback inbound) {
@@ -618,9 +655,10 @@ public class TextAnalysisConfig {
 						<p>The values for this configuration are read from the <em>application.yml</em> file.</p>
 <pre><code class="language-yaml" style="max-height: initial"># src/main/resources/application.yml
 
+# ...
+
 ro.msg.learning.ta:
   url: "https://feedbackp1940442392trial.hanatrial.ondemand.com/spet/ta/services/analize.xsjs?text={text}"
-
 </code></pre>
 					</section>
 					<section>
@@ -683,7 +721,7 @@ public class SentimentService {
 private final SentimentService sentimentService;
 
 // we adjust the createFeedback
-public void createSentiments(Feedback feedback) {
+public void createFeedback(InboundFeedback inbound) {
 	// ... the rest of the method ...
 	// add this at the very end on the method:
 	sentimentService.createSentiments(feedback);
@@ -696,6 +734,8 @@ public void createSentiments(Feedback feedback) {
 						<p><small>
 							If you are in msg network, you need to set the following VM options in your IDE:
 							<pre><code>-Dhttp.proxyHost=proxy.msg.de -Dhttp.proxyPort=3128 -Dhttps.proxyHost=proxy.msg.de -Dhttps.proxyPort=3128</code></pre>
+							<br />IntelliJ: Run -> Edit Configurations -> Feedback Application -> VM Options
+							<br />Eclipse: Run -> Run Configurations -> Feedback Application -> Arguments -> VM Arguments
 						</small></p>
 					</section>
 					<section>
@@ -751,8 +791,12 @@ public class TextAnalysisConfig {
 					<section>
 						<h3>Config (YML)</h3>
 <pre><code class="language-yaml" style="max-height: initial"># src/main/resources/application.yml
+
+# ...
+
+# make sure to not have the URL property twice
 ro.msg.learning.ta:
-  url: "..." # the value of the url property stays the same
+  url: "https://feedbackp1940442392trial.hanatrial.ondemand.com/spet/ta/services/analize.xsjs?text={text}"
   negative:
     - bad
     - horrible
@@ -811,12 +855,21 @@ private List&lt;Sentiment&gt; fallback(String text) {
 					<section>
 						<h3>Hystrix</h3>
 						<p>Lastly we need to add an annotation on the <em>extractFrom</em> method:</p>
-						<pre><code>@HystrixCommand(fallbackMethod = "fallback")</code></pre>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentExtractor
+import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
+
+//...
+
+@HystrixCommand(fallbackMethod = "fallback")
+public List&lt;Sentiment&gt; extractFrom(String text) {
+	// ...
+}
+</code></pre>
 					</section>
 					<section>
 						<h3>Testing</h3>
 						<p>
-							First disconnect from the internet or change the URL from the application.yml to a wrong URL.
+							First change the URL from the application.yml to a wrong URL (e.g. change the host name).
 						</p>
 						<p>
 							Afterwards, if you create new feedback, only the words from the application.yml should be highlighted.
@@ -830,7 +883,20 @@ private List&lt;Sentiment&gt; fallback(String text) {
 					<section>
 						<h3>Reasoning</h3>
 						<p>We don't like that the sentiment extraction is done synchronous. We can fix that easily.</p>
-						<p>First place the @Async annotation on the <em>SentimentService#createSentiments</em> method.</p>
+					</section>
+					<section>
+						<h3>Async Method</h3>
+						<p>First place the @Async annotation on the <em>createSentiments</em> method.</p>
+<pre><code class="language-java" style="max-height: initial">// ro.msg.learning.feedback.service.SentimentService
+import org.springframework.scheduling.annotation.Async;
+
+// ...
+
+@Async
+public void createSentiments(Feedback feedback) {
+	// ...
+}
+</code></pre>
 					</section>
 					<section>
 						<h3>Async Configuration</h3>
@@ -865,11 +931,6 @@ public class AsyncConfig {
 						<h3>Reasoning</h3>
 						<p>The user has to refresh the page to get the newest data. We don't like that. </p>
 						<p>One way of solving it is by using Websockets.</p>
-					</section>
-					<section>
-						<h3>Intro</h3>
-						<p>WebSocket is a protocol for bidirectional communication, supported by all major browsers.</p>
-						<img src="./assets/10_Websocket.PNG"/>
 					</section>
 					<section>
 						<h3>Configuration</h3>
@@ -950,6 +1011,10 @@ public class SentimentsExtracted {
 							To publish events, we just need to autowire the ApplicationEventPublisher,
 							instantiate the event classes and pass them to the publishEvent method.
 						</p>
+						<p>
+							The ApplicationEventPublisher already exists by default in the Spring Context,
+							so we do not need to instantiate it ourselves.
+						</p>
 					</section>
 					<section>
 						<h3>Services</h3>
@@ -957,7 +1022,9 @@ public class SentimentsExtracted {
 import org.springframework.context.ApplicationEventPublisher;
 import ro.msg.learning.feedback.event.FeedbackCreated;
 
-// ...
+// add the following field
+private final ApplicationEventPublisher publisher;
+
 // in the createFeedback method, just after the repository.save:
 publisher.publishEvent(new FeedbackCreated(feedback));
 </code></pre>
@@ -965,7 +1032,9 @@ publisher.publishEvent(new FeedbackCreated(feedback));
 import org.springframework.context.ApplicationEventPublisher;
 import ro.msg.learning.feedback.event.SentimentsExtracted;
 
-// ...
+// add the following field
+private final ApplicationEventPublisher publisher;
+
 // in the createSentiments method, at the end of the method:
 publisher.publishEvent(new SentimentsExtracted(feedback));
 </code></pre>
