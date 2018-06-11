@@ -71,7 +71,7 @@ sap.ui.define([
                 current = sorted[i].endIndex;
             }
             if (current < text.length) {
-                result += text.substring(current);
+                result += jQuery.sap.encodeHTML(text.substring(current));
             }
             return result;
         },
